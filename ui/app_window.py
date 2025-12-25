@@ -50,14 +50,28 @@ class ThesisFlowApp:
         self.root.config(menu=menubar)
 
     def setup_ui(self):
+        # --- TOOLBAR ---
         toolbar = tk.Frame(self.root, bd=1, relief=tk.RAISED)
         toolbar.pack(side=tk.TOP, fill=tk.X)
-        tk.Button(toolbar, text="Center View", command=self.center_view).pack(side=tk.LEFT, padx=5, pady=2)
-        tk.Label(toolbar, text=" | Drag Orange Handle to Resize | Middle Click to Pan").pack(side=tk.LEFT, padx=5)
+        
+        # Center Button
+        tk.Button(toolbar, text="⌖ Center View", command=self.center_view).pack(side=tk.LEFT, padx=2, pady=2)
+        
+        # Default Zoom Button
+        tk.Button(toolbar, text="Default Zoom (100%)", command=self.reset_zoom).pack(side=tk.LEFT, padx=2, pady=2)
+        
+        # Zoom Percentage Label
+        self.lbl_zoom = tk.Label(toolbar, text="100%", width=6, fg="#555")
+        self.lbl_zoom.pack(side=tk.LEFT, padx=2)
+        
+        tk.Label(toolbar, text=" | ").pack(side=tk.LEFT, padx=2)
+        tk.Label(toolbar, text="Drag Handle to Resize | Middle Click to Pan | Right Click Menu").pack(side=tk.LEFT, padx=5)
 
+        # --- MAIN LAYOUT ---
         self.paned = tk.PanedWindow(self.root, orient=tk.HORIZONTAL, sashwidth=4, bg="#d9d9d9")
         self.paned.pack(fill=tk.BOTH, expand=True)
 
+        # Canvas
         left_frame = tk.Frame(self.paned)
         self.canvas = tk.Canvas(left_frame, bg="white", scrollregion=(-10000, -10000, 10000, 10000))
         h_scroll = tk.Scrollbar(left_frame, orient=tk.HORIZONTAL, command=self.canvas.xview)
@@ -73,6 +87,7 @@ class ThesisFlowApp:
         self.bind_canvas_events()
         self.center_view()
 
+        # Right Panel
         self.right_panel = tk.Frame(self.paned, bd=2, relief=tk.SUNKEN, padx=5, pady=5)
         self.paned.add(self.right_panel, minsize=350)
         self.setup_right_panel()
@@ -170,32 +185,53 @@ class ThesisFlowApp:
     def pan_move(self, event):
         self.canvas.scan_dragto(event.x, event.y, gain=1)
 
+    def reset_zoom(self):
+        """Resets scale to 100%."""
+        # Calculate factor needed to return to 1.0
+        scale_factor = 1.0 / self.zoom_level
+        
+        # Scale canvas center
+        cx = self.canvas.winfo_width() / 2
+        cy = self.canvas.winfo_height() / 2
+        
+        self.canvas.scale("all", self.canvas.canvasx(cx), self.canvas.canvasy(cy), scale_factor, scale_factor)
+        
+        self.zoom_level = 1.0
+        self.update_ui_scaling()
+
     def do_zoom(self, event):
         factor = 1.1 if event.delta > 0 else 0.9
         new_zoom = self.zoom_level * factor
+        
         if 0.2 < new_zoom < 3.0:
             self.canvas.scale("all", self.canvas.canvasx(event.x), self.canvas.canvasy(event.y), factor, factor)
             self.zoom_level = new_zoom
-            
-            new_fs = int(BASE_FONT_SIZE * self.zoom_level)
-            for t in self.canvas.find_withtag("text_content"): self.canvas.itemconfig(t, font=("Arial", new_fs))
-            for t in self.canvas.find_withtag("text_label"): self.canvas.itemconfig(t, font=("Arial", int(new_fs*0.7), "bold"))
-            
-            # Re-Sync Coordinates for ALL nodes
-            for node in self.nodes:
-                node.sync_coords()
-                if node == self.selected_object:
-                    node.draw_handle()
+            self.update_ui_scaling()
 
-            for conn in self.connections: conn.draw()
+    def update_ui_scaling(self):
+        """Refreshes all visual elements after a zoom operation."""
+        # Update Label
+        percentage = int(self.zoom_level * 100)
+        self.lbl_zoom.config(text=f"{percentage}%")
 
-    # --- THIS WAS THE MISSING METHOD ---
+        # Update Fonts
+        new_fs = int(BASE_FONT_SIZE * self.zoom_level)
+        for t in self.canvas.find_withtag("text_content"): self.canvas.itemconfig(t, font=("Arial", new_fs))
+        for t in self.canvas.find_withtag("text_label"): self.canvas.itemconfig(t, font=("Arial", int(new_fs*0.7), "bold"))
+        
+        # Update Coordinate Logic
+        for node in self.nodes:
+            node.sync_coords()
+            if node == self.selected_object:
+                node.draw_handle()
+
+        for conn in self.connections: conn.draw()
+
     def update_connections(self, moved_node):
         """Called by a node when it moves to update attached arrows."""
         for conn in self.connections:
             if conn.parent == moved_node or conn.child == moved_node:
                 conn.draw()
-    # -----------------------------------
 
     def on_mouse_move(self, event):
         if self.connect_mode: return
@@ -254,21 +290,29 @@ class ThesisFlowApp:
                         self.select_object(conn)
                         return
 
+    # --- DRAG LOGIC (FIXED) ---
     def on_drag(self, event):
         if self.drag_data["mode"] == "move":
             node = self.drag_data["item"]
             if node:
-                dx = (event.x - self.drag_data["x"]) / self.zoom_level
-                dy = (event.y - self.drag_data["y"]) / self.zoom_level
+                # FIX: Do NOT divide by zoom_level for moving. 
+                # Tkinter canvas moves 1 unit = 1 pixel regardless of scale state.
+                dx = (event.x - self.drag_data["x"]) 
+                dy = (event.y - self.drag_data["y"])
+                
                 node.move(dx, dy)
                 self.drag_data["x"] = event.x
                 self.drag_data["y"] = event.y
+                
         elif self.drag_data["mode"] == "resize":
             node = self.selected_object
             if node and isinstance(node, LogicNode):
+                # For resizing, we calculate LOGICAL size change, so we MUST divide by zoom.
                 dx = (event.x - self.drag_data["x"]) / self.zoom_level
                 dy = (event.y - self.drag_data["y"]) / self.zoom_level
+                
                 node.resize(node.width + dx, node.height + dy)
+                
                 self.var_w.set(int(node.width))
                 self.var_h.set(int(node.height))
                 self.drag_data["x"] = event.x
@@ -423,7 +467,7 @@ class ThesisFlowApp:
             self.canvas.delete(obj.rect_id)
             self.canvas.delete(obj.text_id)
             self.canvas.delete(obj.type_id)
-            obj.remove_handle()
+            obj.set_selected(False) 
             to_remove = [c for c in self.connections if c.parent == obj or c.child == obj]
             for c in to_remove:
                 c.delete()
