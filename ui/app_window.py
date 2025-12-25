@@ -140,6 +140,9 @@ class ThesisFlowApp:
         self.ent_ref_link.pack(fill=tk.X, pady=2)
         tk.Label(sec3, text="Description:").pack(anchor="w")
         self.txt_ref_desc = tk.Text(sec3, height=3, width=30)
+        
+        self.txt_ref_desc.bind("<Control-s>", lambda e: self.save_reference(e))
+        
         self.txt_ref_desc.pack(fill=tk.X, pady=2)
         tk.Button(sec3, text="Update Ref", command=self.save_reference).pack(fill=tk.X, pady=2)
         tk.Button(sec3, text="Remove Ref", command=self.remove_reference).pack(fill=tk.X)
@@ -341,15 +344,18 @@ class ThesisFlowApp:
 
     # ... [Selection, Find Node, and Panel Populate methods remain similar] ...
     # Copied utility methods to ensure file is complete
-    def select_object(self, obj):
+    def select_object(self, obj):   
         self.selected_object = obj
         obj.set_selected(True)
+        
         if isinstance(obj, LogicNode):
-            self.populate_node_panel(obj)
-            self.enable_node_panel()
+            # --- SWAP THESE TWO LINES ---
+            self.enable_node_panel()      # 1. Enable the UI first
+            self.populate_node_panel(obj) # 2. Now populate the data (Text widget is writable)
+            # ----------------------------
+            
         elif isinstance(obj, Connection):
             self.disable_all_panels()
-
     def find_node_at(self, sx, sy):
         cx, cy = self.canvas.canvasx(sx), self.canvas.canvasy(sy)
         for node in self.nodes:
