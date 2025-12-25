@@ -239,6 +239,7 @@ class ThesisFlowApp:
         self.canvas.config(cursor=cursor)
 
     def on_canvas_click(self, event):
+        # 1. Handle Connect Mode
         if self.connect_mode and self.connect_source:
             target = self.find_node_at(event.x, event.y)
             if target and target != self.connect_source:
@@ -250,6 +251,8 @@ class ThesisFlowApp:
 
         cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
         items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
+        
+        # 2. Handle Resize Grips
         for item in items:
             tags = self.canvas.gettags(item)
             if "resize_grip" in tags:
@@ -259,11 +262,13 @@ class ThesisFlowApp:
                     self.drag_data["y"] = event.y
                     return
 
+        # Deselect if clicking elsewhere (we will re-select below if a node is hit)
         if self.selected_object:
             self.selected_object.set_selected(False)
             self.selected_object = None
             self.disable_all_panels()
 
+        # 3. Handle Node Selection/Move
         node = self.find_node_at(event.x, event.y)
         if node:
             self.select_object(node)
@@ -273,6 +278,7 @@ class ThesisFlowApp:
             self.drag_data["y"] = event.y
             return
 
+        # 4. Handle Connection Selection
         items = self.canvas.find_overlapping(cx-10, cy-10, cx+10, cy+10)
         for item_id in items:
             tags = self.canvas.gettags(item_id)
@@ -282,20 +288,24 @@ class ThesisFlowApp:
                         self.select_object(conn)
                         return
 
+        # 5. NEW: Handle Panning (Background Drag)
+        # If we reached here, we clicked empty space. Start Panning.
+        self.drag_data["mode"] = "pan"
+        self.canvas.scan_mark(event.x, event.y)
+        
     def on_drag(self, event):
         if self.drag_data["mode"] == "move":
             node = self.drag_data["item"]
             if node:
-                # Raw Delta for moving (Matches mouse 1:1)
                 dx = (event.x - self.drag_data["x"]) 
                 dy = (event.y - self.drag_data["y"])
                 node.move(dx, dy)
                 self.drag_data["x"] = event.x
                 self.drag_data["y"] = event.y
+
         elif self.drag_data["mode"] == "resize":
             node = self.selected_object
             if node and isinstance(node, LogicNode):
-                # Scaled Delta for Resizing
                 dx = (event.x - self.drag_data["x"]) / self.zoom_level
                 dy = (event.y - self.drag_data["y"]) / self.zoom_level
                 node.resize(node.width + dx, node.height + dy)
@@ -304,6 +314,10 @@ class ThesisFlowApp:
                 self.drag_data["x"] = event.x
                 self.drag_data["y"] = event.y
 
+        # NEW: Handle Panning
+        elif self.drag_data["mode"] == "pan":
+            self.canvas.scan_dragto(event.x, event.y, gain=1)
+            
     def on_drop(self, event):
         self.drag_data["mode"] = None
         self.drag_data["item"] = None
