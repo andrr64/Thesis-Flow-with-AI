@@ -34,7 +34,7 @@ class ThesisFlowApp:
     def bind_shortcuts(self):
         self.root.bind("<Control-s>", lambda e: self.save_to_xml())
         self.root.bind("<Delete>", lambda e: self.delete_selected_object())
-        self.root.bind("<BackSpace>", lambda e: self.delete_selected_object())
+        
 
     def setup_menu(self):
         menubar = tk.Menu(self.root)
