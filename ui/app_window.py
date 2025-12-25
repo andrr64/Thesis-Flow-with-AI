@@ -217,6 +217,7 @@ class ThesisFlowApp:
         for t in self.canvas.find_withtag("text_label"): self.canvas.itemconfig(t, font=("Arial", int(new_fs*0.7), "bold"))
         for node in self.nodes:
             node.sync_coords()
+            node.update_text_wrapping() # <--- F
             if node == self.selected_object: node.draw_handle()
         for conn in self.connections: conn.draw()
 
