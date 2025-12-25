@@ -176,8 +176,53 @@ class ThesisFlowApp:
         self.canvas.bind("<Motion>", self.on_mouse_move)
 
     def center_view(self):
-        self.canvas.xview_moveto(0.5)
-        self.canvas.yview_moveto(0.5)
+        """Calculates the bounding box of ALL nodes and centers the view on them."""
+        if not self.nodes:
+            # If empty, just go to origin (0,0)
+            self.canvas.xview_moveto(0.5)
+            self.canvas.yview_moveto(0.5)
+            return
+
+        # 1. Find min/max coordinates of all nodes
+        min_x = float('inf')
+        max_x = float('-inf')
+        min_y = float('inf')
+        max_y = float('-inf')
+
+        for node in self.nodes:
+            # Check visual bounds
+            coords = self.canvas.coords(node.rect_id)
+            if coords:
+                if coords[0] < min_x: min_x = coords[0]
+                if coords[2] > max_x: max_x = coords[2]
+                if coords[1] < min_y: min_y = coords[1]
+                if coords[3] > max_y: max_y = coords[3]
+
+        # 2. Calculate center point of the content
+        content_cx = (min_x + max_x) / 2
+        content_cy = (min_y + max_y) / 2
+
+        # 3. Convert to Scroll Fraction
+        # Scrollregion is -10k to +10k (width 20000)
+        # 0.0 = -10000, 1.0 = 10000.
+        # We need to offset so the content_cx ends up in the middle of the SCREEN.
+        
+        screen_w = self.canvas.winfo_width()
+        screen_h = self.canvas.winfo_height()
+        
+        # Target top-left corner of the view
+        target_left = content_cx - (screen_w / 2)
+        target_top = content_cy - (screen_h / 2)
+        
+        # Region constants
+        region_min = -10000
+        region_total = 20000
+        
+        fraction_x = (target_left - region_min) / region_total
+        fraction_y = (target_top - region_min) / region_total
+        
+        self.canvas.xview_moveto(fraction_x)
+        self.canvas.yview_moveto(fraction_y)
 
     def start_pan(self, event):
         self.canvas.scan_mark(event.x, event.y)
@@ -186,18 +231,18 @@ class ThesisFlowApp:
         self.canvas.scan_dragto(event.x, event.y, gain=1)
 
     def reset_zoom(self):
-        """Resets scale to 100%."""
-        # Calculate factor needed to return to 1.0
+        """Resets zoom to 1.0 and recenters on content."""
+        # Reset scale to 1.0
         scale_factor = 1.0 / self.zoom_level
-        
-        # Scale canvas center
-        cx = self.canvas.winfo_width() / 2
-        cy = self.canvas.winfo_height() / 2
-        
-        self.canvas.scale("all", self.canvas.canvasx(cx), self.canvas.canvasy(cy), scale_factor, scale_factor)
-        
+        self.canvas.scale("all", 0, 0, scale_factor, scale_factor)
         self.zoom_level = 1.0
+        
         self.update_ui_scaling()
+        
+        # Force re-center so nodes don't disappear
+        self.root.update_idletasks() # Ensure canvas knows its size
+        self.center_view()
+        
 
     def do_zoom(self, event):
         factor = 1.1 if event.delta > 0 else 0.9
