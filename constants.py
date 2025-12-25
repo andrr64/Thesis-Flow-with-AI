@@ -1,27 +1,24 @@
 # constants.py
 
+# --- Application Info ---
+TITLE = "Thesis Flow"
+VERSION = (1, 2, 1)
+DESCRIPTION = "A Logic Map Tool for Research Papers."
+
 # --- Visual Dimensions ---
 BASE_NODE_WIDTH = 150
 BASE_NODE_HEIGHT = 60
 BASE_FONT_SIZE = 9
 
-# --- Color Palette (Classic System Colors) ---
+# --- Color Palette ---
 COLORS = {
-    # Node Types
     "Question": "#ADD8E6",    # Light Blue
     "Problem": "#FFDAB9",     # Peach/Orange
     "Solution": "#90EE90",    # Light Green
     "Explanation": "#D3D3D3", # Light Grey
     
-    # State Colors
-    "Selected": "#FF0000",    # Red Border when selected
-    "LineDefault": "black",   # Default Arrow Color
-    "LineSelected": "red"     # Selected Arrow Color
+    "Selected": "#0078D7",    # Deep Blue Border when selected
+    "Handle": "#FF9500",      # Orange Resize Grip [Image of Resize Grip]
+    "LineDefault": "black",
+    "LineSelected": "red"
 }
-
-TITLE = "Thesis Flow"
-DESCRIPTION = """
-A Logic Map Tool for Research Papers.
-Created by Derza Andreas.
-"""
-VERSION = [1, 0, 0] # major, minor, patch
