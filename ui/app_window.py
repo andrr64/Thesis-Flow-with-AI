@@ -28,6 +28,9 @@ class ThesisFlowApp:
         self.setup_ui()
         self.bind_shortcuts()
 
+    # ... [Keep init methods: bind_shortcuts, setup_menu, setup_ui] ...
+    # (These haven't changed logic, you can keep your existing ones)
+
     def bind_shortcuts(self):
         self.root.bind("<Control-s>", lambda e: self.save_to_xml())
         self.root.bind("<Delete>", lambda e: self.delete_selected_object())
@@ -50,28 +53,17 @@ class ThesisFlowApp:
         self.root.config(menu=menubar)
 
     def setup_ui(self):
-        # --- TOOLBAR ---
         toolbar = tk.Frame(self.root, bd=1, relief=tk.RAISED)
         toolbar.pack(side=tk.TOP, fill=tk.X)
-        
-        # Center Button
         tk.Button(toolbar, text="⌖ Center View", command=self.center_view).pack(side=tk.LEFT, padx=2, pady=2)
-        
-        # Default Zoom Button
-        tk.Button(toolbar, text="Default Zoom (100%)", command=self.reset_zoom).pack(side=tk.LEFT, padx=2, pady=2)
-        
-        # Zoom Percentage Label
-        self.lbl_zoom = tk.Label(toolbar, text="100%", width=6, fg="#555")
+        tk.Button(toolbar, text="Default Zoom", command=self.reset_zoom).pack(side=tk.LEFT, padx=2, pady=2)
+        self.lbl_zoom = tk.Label(toolbar, text="100%", width=5, fg="#555")
         self.lbl_zoom.pack(side=tk.LEFT, padx=2)
-        
-        tk.Label(toolbar, text=" | ").pack(side=tk.LEFT, padx=2)
-        tk.Label(toolbar, text="Drag Handle to Resize | Middle Click to Pan | Right Click Menu").pack(side=tk.LEFT, padx=5)
+        tk.Label(toolbar, text="| Drag Handle to Resize | Middle Click to Pan").pack(side=tk.LEFT, padx=10)
 
-        # --- MAIN LAYOUT ---
         self.paned = tk.PanedWindow(self.root, orient=tk.HORIZONTAL, sashwidth=4, bg="#d9d9d9")
         self.paned.pack(fill=tk.BOTH, expand=True)
 
-        # Canvas
         left_frame = tk.Frame(self.paned)
         self.canvas = tk.Canvas(left_frame, bg="white", scrollregion=(-10000, -10000, 10000, 10000))
         h_scroll = tk.Scrollbar(left_frame, orient=tk.HORIZONTAL, command=self.canvas.xview)
@@ -87,7 +79,6 @@ class ThesisFlowApp:
         self.bind_canvas_events()
         self.center_view()
 
-        # Right Panel
         self.right_panel = tk.Frame(self.paned, bd=2, relief=tk.SUNKEN, padx=5, pady=5)
         self.paned.add(self.right_panel, minsize=350)
         self.setup_right_panel()
@@ -95,13 +86,11 @@ class ThesisFlowApp:
     def setup_right_panel(self):
         sec1 = tk.LabelFrame(self.right_panel, text="Node Properties", padx=5, pady=5)
         sec1.pack(fill=tk.X, pady=(0, 10))
-        
         tk.Label(sec1, text="Type:").pack(anchor="w")
         self.var_type = tk.StringVar()
         self.cb_type = ttk.Combobox(sec1, textvariable=self.var_type, values=list(COLORS.keys())[:4], state="readonly")
         self.cb_type.pack(fill=tk.X, pady=2)
         
-        # Dimensions
         dim_frame = tk.Frame(sec1)
         dim_frame.pack(fill=tk.X, pady=5)
         tk.Label(dim_frame, text="Width:").grid(row=0, column=0, padx=2)
@@ -115,7 +104,6 @@ class ThesisFlowApp:
         en_h = tk.Entry(dim_frame, textvariable=self.var_h, width=6)
         en_h.grid(row=0, column=3, padx=2)
         en_h.bind("<Return>", lambda e: self.apply_manual_size())
-        
         tk.Button(dim_frame, text="Set", command=self.apply_manual_size, width=4).grid(row=0, column=4, padx=5)
 
         tk.Label(sec1, text="Argument / Text:").pack(anchor="w")
@@ -176,53 +164,36 @@ class ThesisFlowApp:
         self.canvas.bind("<Motion>", self.on_mouse_move)
 
     def center_view(self):
-        """Calculates the bounding box of ALL nodes and centers the view on them."""
         if not self.nodes:
-            # If empty, just go to origin (0,0)
             self.canvas.xview_moveto(0.5)
             self.canvas.yview_moveto(0.5)
             return
-
-        # 1. Find min/max coordinates of all nodes
-        min_x = float('inf')
-        max_x = float('-inf')
-        min_y = float('inf')
-        max_y = float('-inf')
-
+        min_x, max_x = float('inf'), float('-inf')
+        min_y, max_y = float('inf'), float('-inf')
         for node in self.nodes:
-            # Check visual bounds
             coords = self.canvas.coords(node.rect_id)
             if coords:
                 if coords[0] < min_x: min_x = coords[0]
                 if coords[2] > max_x: max_x = coords[2]
                 if coords[1] < min_y: min_y = coords[1]
                 if coords[3] > max_y: max_y = coords[3]
-
-        # 2. Calculate center point of the content
         content_cx = (min_x + max_x) / 2
         content_cy = (min_y + max_y) / 2
-
-        # 3. Convert to Scroll Fraction
-        # Scrollregion is -10k to +10k (width 20000)
-        # 0.0 = -10000, 1.0 = 10000.
-        # We need to offset so the content_cx ends up in the middle of the SCREEN.
-        
         screen_w = self.canvas.winfo_width()
         screen_h = self.canvas.winfo_height()
-        
-        # Target top-left corner of the view
         target_left = content_cx - (screen_w / 2)
         target_top = content_cy - (screen_h / 2)
-        
-        # Region constants
-        region_min = -10000
-        region_total = 20000
-        
-        fraction_x = (target_left - region_min) / region_total
-        fraction_y = (target_top - region_min) / region_total
-        
-        self.canvas.xview_moveto(fraction_x)
-        self.canvas.yview_moveto(fraction_y)
+        region_min, region_total = -10000, 20000
+        self.canvas.xview_moveto((target_left - region_min) / region_total)
+        self.canvas.yview_moveto((target_top - region_min) / region_total)
+
+    def reset_zoom(self):
+        scale_factor = 1.0 / self.zoom_level
+        self.canvas.scale("all", 0, 0, scale_factor, scale_factor)
+        self.zoom_level = 1.0
+        self.update_ui_scaling()
+        self.root.update_idletasks()
+        self.center_view()
 
     def start_pan(self, event):
         self.canvas.scan_mark(event.x, event.y)
@@ -230,50 +201,26 @@ class ThesisFlowApp:
     def pan_move(self, event):
         self.canvas.scan_dragto(event.x, event.y, gain=1)
 
-    def reset_zoom(self):
-        """Resets zoom to 1.0 and recenters on content."""
-        # Reset scale to 1.0
-        scale_factor = 1.0 / self.zoom_level
-        self.canvas.scale("all", 0, 0, scale_factor, scale_factor)
-        self.zoom_level = 1.0
-        
-        self.update_ui_scaling()
-        
-        # Force re-center so nodes don't disappear
-        self.root.update_idletasks() # Ensure canvas knows its size
-        self.center_view()
-        
-
     def do_zoom(self, event):
         factor = 1.1 if event.delta > 0 else 0.9
         new_zoom = self.zoom_level * factor
-        
         if 0.2 < new_zoom < 3.0:
             self.canvas.scale("all", self.canvas.canvasx(event.x), self.canvas.canvasy(event.y), factor, factor)
             self.zoom_level = new_zoom
             self.update_ui_scaling()
 
     def update_ui_scaling(self):
-        """Refreshes all visual elements after a zoom operation."""
-        # Update Label
         percentage = int(self.zoom_level * 100)
         self.lbl_zoom.config(text=f"{percentage}%")
-
-        # Update Fonts
         new_fs = int(BASE_FONT_SIZE * self.zoom_level)
         for t in self.canvas.find_withtag("text_content"): self.canvas.itemconfig(t, font=("Arial", new_fs))
         for t in self.canvas.find_withtag("text_label"): self.canvas.itemconfig(t, font=("Arial", int(new_fs*0.7), "bold"))
-        
-        # Update Coordinate Logic
         for node in self.nodes:
             node.sync_coords()
-            if node == self.selected_object:
-                node.draw_handle()
-
+            if node == self.selected_object: node.draw_handle()
         for conn in self.connections: conn.draw()
 
     def update_connections(self, moved_node):
-        """Called by a node when it moves to update attached arrows."""
         for conn in self.connections:
             if conn.parent == moved_node or conn.child == moved_node:
                 conn.draw()
@@ -301,7 +248,6 @@ class ThesisFlowApp:
             return
 
         cx, cy = self.canvas.canvasx(event.x), self.canvas.canvasy(event.y)
-        
         items = self.canvas.find_overlapping(cx-2, cy-2, cx+2, cy+2)
         for item in items:
             tags = self.canvas.gettags(item)
@@ -335,29 +281,23 @@ class ThesisFlowApp:
                         self.select_object(conn)
                         return
 
-    # --- DRAG LOGIC (FIXED) ---
     def on_drag(self, event):
         if self.drag_data["mode"] == "move":
             node = self.drag_data["item"]
             if node:
-                # FIX: Do NOT divide by zoom_level for moving. 
-                # Tkinter canvas moves 1 unit = 1 pixel regardless of scale state.
+                # Raw Delta for moving (Matches mouse 1:1)
                 dx = (event.x - self.drag_data["x"]) 
                 dy = (event.y - self.drag_data["y"])
-                
                 node.move(dx, dy)
                 self.drag_data["x"] = event.x
                 self.drag_data["y"] = event.y
-                
         elif self.drag_data["mode"] == "resize":
             node = self.selected_object
             if node and isinstance(node, LogicNode):
-                # For resizing, we calculate LOGICAL size change, so we MUST divide by zoom.
+                # Scaled Delta for Resizing
                 dx = (event.x - self.drag_data["x"]) / self.zoom_level
                 dy = (event.y - self.drag_data["y"]) / self.zoom_level
-                
                 node.resize(node.width + dx, node.height + dy)
-                
                 self.var_w.set(int(node.width))
                 self.var_h.set(int(node.height))
                 self.drag_data["x"] = event.x
@@ -384,6 +324,8 @@ class ThesisFlowApp:
                 self.selected_object.resize(w, h)
             except: pass
 
+    # ... [Selection, Find Node, and Panel Populate methods remain similar] ...
+    # Copied utility methods to ensure file is complete
     def select_object(self, obj):
         self.selected_object = obj
         obj.set_selected(True)
@@ -586,7 +528,12 @@ class ThesisFlowApp:
                 lines.append(f"[{n.node_type}] {n.text}")
                 for r in n.references:
                     lines.append(f"   • {r['title']} ({r['link']})")
-                    if r['desc']: lines.append(f"     Note: {r['desc']}")
+                    if r['desc']:
+                        # Fix: Handle multiline descriptions with proper indent
+                        desc_lines = r['desc'].split('\n')
+                        for i, line in enumerate(desc_lines):
+                            prefix = "     Note: " if i == 0 else "           "
+                            lines.append(f"{prefix}{line}")
                 lines.append("")
         top = tk.Toplevel(self.root)
         top.geometry("600x500")
