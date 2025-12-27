@@ -559,9 +559,21 @@ class ThesisFlowApp:
     def save_to_xml(self):
         path = filedialog.asksaveasfilename(defaultextension=".xml", filetypes=[("XML", "*.xml")])
         if not path: return
+        
         root = ET.Element("ThesisFlow", project_id=self.project_id)
+        
         for n in self.nodes:
-            ne = ET.SubElement(root, "Node", id=n.id, type=n.node_type, x=str(n.x), y=str(n.y), w=str(n.width), h=str(n.height))
+            # --- PERBAIKAN: Normalisasi Koordinat ---
+            # Kembalikan koordinat visual ke skala 1.0 sebelum disimpan
+            # agar sinkron dengan width/height yang memang berskala 1.0
+            norm_x = n.x / self.zoom_level
+            norm_y = n.y / self.zoom_level
+            # ----------------------------------------
+
+            ne = ET.SubElement(root, "Node", id=n.id, type=n.node_type, 
+                               x=str(norm_x), y=str(norm_y), # Gunakan norm_x dan norm_y
+                               w=str(n.width), h=str(n.height))
+            
             ET.SubElement(ne, "Text").text = n.text
             re = ET.SubElement(ne, "References")
             for ref in n.references:
@@ -570,30 +582,43 @@ class ThesisFlowApp:
                 ET.SubElement(r_item, "Link").text = ref.get('link', '')
                 ET.SubElement(r_item, "File").text = ref.get('file', '')
                 ET.SubElement(r_item, "Desc").text = ref.get('desc', '')
+        
         ce_root = ET.SubElement(root, "Connections")
         for c in self.connections:
             ET.SubElement(ce_root, "Link", parent=c.parent.id, child=c.child.id)
+            
         try:
             ET.ElementTree(root).write(path, encoding="utf-8", xml_declaration=True)
             messagebox.showinfo("Saved", "File saved successfully!")
         except Exception as e: messagebox.showerror("Error", str(e))
-
     def load_from_xml(self):
         path = filedialog.askopenfilename(filetypes=[("XML", "*.xml")])
         if not path: return
+        
+        # --- PERBAIKAN UTAMA: Reset Zoom & View sebelum load ---
+        # Ini penting agar node digambar pada skala 1:1 yang benar
+        self.reset_zoom() 
+        # -------------------------------------------------------
+
         try:
             tree = ET.parse(path)
             root = tree.getroot()
-            # --- PERUBAHAN 5: Load Project ID atau buat baru jika tidak ada ---
+            
+            # Load Project ID
             self.project_id = root.get('project_id', str(uuid.uuid4()))
-            # ----------------------------------------------------------------
+            
+            # Hapus node lama
             for n in list(self.nodes): self.delete_object(n)
+            
             id_map = {}
             for ne in root.findall("Node"):
                 w = float(ne.get('w')) if ne.get('w') else BASE_NODE_WIDTH
                 h = float(ne.get('h')) if ne.get('h') else BASE_NODE_HEIGHT
+                
+                # Pastikan LogicNode menerima parameter node_id dengan benar
                 node = LogicNode(self, float(ne.get('x')), float(ne.get('y')), ne.get('type'), 
                                  text=ne.find("Text").text or "", node_id=ne.get('id'), width=w, height=h)
+                
                 ref_container = ne.find("References")
                 if ref_container is not None:
                     for r_xml in ref_container.findall("Ref"):
@@ -609,15 +634,17 @@ class ThesisFlowApp:
                 node.update_visuals()
                 self.nodes.append(node)
                 id_map[node.id] = node
+            
             conn_root = root.find("Connections")
             if conn_root is not None:
                 for link in conn_root.findall("Link"):
                     pid, cid = link.get("parent"), link.get("child")
                     if pid in id_map and cid in id_map:
                         self.connections.append(Connection(self, id_map[pid], id_map[cid]))
+            
             self.center_view()
         except Exception as e: messagebox.showerror("Error", str(e))
-
+        
     def show_global_references(self):
         lines = ["--- BIBLIOGRAPHY EXPORT ---", ""]
         for n in self.nodes:
