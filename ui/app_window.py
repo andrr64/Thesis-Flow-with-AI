@@ -31,6 +31,8 @@ class ThesisFlowApp:
         self.connections = []
         self.selected_object = None 
         
+        self.project_id = str(uuid.uuid4())
+        
         self.zoom_level = 1.0
         self.drag_data = {"item": None, "x": 0, "y": 0, "mode": None}
         self.connect_mode = False
@@ -214,19 +216,23 @@ class ThesisFlowApp:
             try:
                 filename = os.path.basename(file_path)
                 
-                # --- NEW LOGIC START ---
-                # 1. Define the specific folder path
-                target_dir = os.path.join(os.getcwd(), "journal_files")
+                # --- PERUBAHAN 2: Folder berdasarkan Node UUID ---
+                # Ambil ID dari node yang sedang dipilih
+                node_id = self.selected_object.id
                 
-                # 2. Create the folder if it does not exist
+                # Buat path: journal_files / {node_id} /
+                base_journal_dir = os.path.join(os.getcwd(), "journal_files")
+                target_dir = os.path.join(base_journal_dir, node_id)
+                
+                # Buat folder jika belum ada
                 if not os.path.exists(target_dir):
                     os.makedirs(target_dir)
                 
-                # 3. Set destination inside 'journal_files'
+                # Set destinasi akhir
                 dest_path = os.path.join(target_dir, filename)
-                # --- NEW LOGIC END ---
+                # -------------------------------------------------
 
-                # 4. Copy the file
+                # Copy file
                 if os.path.abspath(file_path) != os.path.abspath(dest_path):
                     shutil.copy2(file_path, dest_path)
                 
@@ -238,13 +244,17 @@ class ThesisFlowApp:
                 
             except Exception as e:
                 messagebox.showerror("File Error", f"Could not copy file: {e}")
-
     def open_pdf(self):
         filename = self.ent_ref_file.get()
         if not filename: return
         
-        # Look for the file inside 'journal_files'
-        path = os.path.join(os.getcwd(), "journal_files", filename)
+        # Pastikan ada node yang dipilih untuk mengambil ID-nya
+        if not isinstance(self.selected_object, LogicNode): return
+
+        # --- PERUBAHAN 3: Cari file di dalam folder UUID Node ---
+        node_id = self.selected_object.id
+        path = os.path.join(os.getcwd(), "journal_files", node_id, filename)
+        # -------------------------------------------------------
         
         if os.path.exists(path):
             try:
@@ -253,7 +263,17 @@ class ThesisFlowApp:
                 import subprocess
                 subprocess.call(('xdg-open', path)) # Linux/Mac
         else:
-            messagebox.showerror("Error", f"File not found in 'journal_files' folder:\n{path}")
+            # Fallback: Coba cari di folder root journal_files (untuk kompatibilitas file lama)
+            old_path = os.path.join(os.getcwd(), "journal_files", filename)
+            if os.path.exists(old_path):
+                try:
+                    os.startfile(old_path)
+                except AttributeError:
+                    import subprocess
+                    subprocess.call(('xdg-open', old_path))
+            else:
+                messagebox.showerror("Error", f"File not found in:\n{path}")
+                
     def _draw_grid(self):
         for i in range(-10000, 10000, 100):
             self.canvas.create_line(i, -10000, i, 10000, fill="#f0f0f0", width=1)
@@ -539,7 +559,7 @@ class ThesisFlowApp:
     def save_to_xml(self):
         path = filedialog.asksaveasfilename(defaultextension=".xml", filetypes=[("XML", "*.xml")])
         if not path: return
-        root = ET.Element("ThesisFlow")
+        root = ET.Element("ThesisFlow", project_id=self.project_id)
         for n in self.nodes:
             ne = ET.SubElement(root, "Node", id=n.id, type=n.node_type, x=str(n.x), y=str(n.y), w=str(n.width), h=str(n.height))
             ET.SubElement(ne, "Text").text = n.text
@@ -564,6 +584,9 @@ class ThesisFlowApp:
         try:
             tree = ET.parse(path)
             root = tree.getroot()
+            # --- PERUBAHAN 5: Load Project ID atau buat baru jika tidak ada ---
+            self.project_id = root.get('project_id', str(uuid.uuid4()))
+            # ----------------------------------------------------------------
             for n in list(self.nodes): self.delete_object(n)
             id_map = {}
             for ne in root.findall("Node"):

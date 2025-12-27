@@ -2,7 +2,7 @@
 
 # --- Application Info ---
 TITLE = "Thesis Flow"
-VERSION = (1, 2, 4)
+VERSION = (1, 2, 5)
 DESCRIPTION = "A Logic Map Tool for Research Papers."
 
 # --- Visual Dimensions ---
