@@ -12,13 +12,16 @@ BASE_FONT_SIZE = 9
 
 # --- Color Palette ---
 COLORS = {
-    "Question": "#ADD8E6",    # Light Blue
-    "Problem": "#FFDAB9",     # Peach/Orange
-    "Solution": "#90EE90",    # Light Green
-    "Explanation": "#D3D3D3", # Light Grey
+"Question": "#e1f5fe",    # Light Blue
+    "Problem": "#ffebee",     # Light Red
+    "Solution": "#e8f5e9",    # Light Green
+    "Explanation": "#fff3e0", # Light Orange
+    "Conclusion": "#f3e5f5",  # <--- ADD THIS (Light Purple)
     
     "Selected": "#0078D7",    # Deep Blue Border when selected
     "Handle": "#FF9500",      # Orange Resize Grip [Image of Resize Grip]
     "LineDefault": "black",
     "LineSelected": "red"
 }
+ATTACHMENT_DIR = "journal_files"
+ICO_PATH = "logo.ico"

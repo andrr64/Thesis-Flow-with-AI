@@ -1,5 +1,6 @@
 # Thesis Flow 
 
+
 **Thesis Flow** is a desktop application designed to streamline the "logic mapping" phase of writing scientific papers. It allows researchers to visually structure their arguments using a node-based system, specifically tailored for the academic workflow.
 
 Unlike generic mind-mapping tools, ThesisFlow distinguishes between Questions, Problems, Solutions, and Explanations, and includes built-in fields for managing references per node—ensuring your bibliography aligns perfectly with your logical flow.
